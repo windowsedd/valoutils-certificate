@@ -1,0 +1,8 @@
+*.key
+*.pfx
+*.p12
+privkey.pem
+.certbot/
+.tmp/
+cloudflare.ini
+node_modules/
