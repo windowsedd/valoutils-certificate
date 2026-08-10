@@ -1,7 +1,9 @@
 *.key
 *.pfx
 *.p12
+*.pfx.age
 privkey.pem
+artifacts/
 .certbot/
 .tmp/
 cloudflare.ini

@@ -6,7 +6,7 @@
 
 **Architecture:** Focused Bash scripts inspect, renew, validate, and serialize certificate state. One scheduled/manual GitHub Actions workflow runs those scripts, commits public outputs, uploads an age-encrypted PFX artifact after renewal, and deploys the static `docs/` site through GitHub Pages.
 
-**Tech Stack:** Bash 4+, OpenSSL 3, jq, Certbot 5.7.0, certbot-dns-cloudflare 5.7.0, age, HTML, CSS, JavaScript, Node.js 24 test runner, GitHub Actions, GitHub Pages
+**Tech Stack:** Bash 4+, OpenSSL 3, Python 3 standard JSON library, Certbot 5.7.0, certbot-dns-cloudflare 5.7.0, age, HTML, CSS, JavaScript, Node.js 24 test runner, GitHub Actions, GitHub Pages
 
 ## Global Constraints
 
@@ -85,19 +85,19 @@ Create `tests/check-cert.test.sh`. Generate a 4-day matching certificate, a 3-da
 
 ```bash
 result=$(scripts/check-cert.sh "$tmp/valid/fullchain.pem" "$domain")
-assert_eq "false" "$(jq -r .renewal_required <<<"$result")"
-assert_eq "valid" "$(jq -r .reason <<<"$result")"
+assert_eq "false" "$(json_get "$result" renewal_required)"
+assert_eq "valid" "$(json_get "$result" reason)"
 
 result=$(scripts/check-cert.sh "$tmp/threshold/fullchain.pem" "$domain")
-assert_eq "true" "$(jq -r .renewal_required <<<"$result")"
-assert_eq "renewal-threshold" "$(jq -r .reason <<<"$result")"
+assert_eq "true" "$(json_get "$result" renewal_required)"
+assert_eq "renewal-threshold" "$(json_get "$result" reason)"
 
 result=$(scripts/check-cert.sh "$tmp/wrong/fullchain.pem" "$domain")
-assert_eq "true" "$(jq -r .renewal_required <<<"$result")"
-assert_eq "hostname-mismatch" "$(jq -r .reason <<<"$result")"
+assert_eq "true" "$(json_get "$result" renewal_required)"
+assert_eq "hostname-mismatch" "$(json_get "$result" reason)"
 
 result=$(scripts/check-cert.sh "$tmp/missing.pem" "$domain")
-assert_eq "missing" "$(jq -r .reason <<<"$result")"
+assert_eq "missing" "$(json_get "$result" reason)"
 ```
 
 Set `CHECK_NOW_EPOCH` to one second after the 4-day certificate's `notAfter` value and assert `expired=true`, `currently_valid=false`, and `reason=expired`. Write random text to a PEM file and assert `reason=parse-error`.
@@ -110,20 +110,20 @@ Expected: FAIL because `scripts/check-cert.sh` does not exist.
 
 - [ ] **Step 4: Implement `scripts/check-cert.sh`**
 
-Parse the two positional arguments, use `openssl x509 -checkhost`, parse `notBefore` and `notAfter` with GNU `date`, calculate floor days remaining, and emit JSON through `jq -n`. Use `CHECK_NOW_EPOCH=${CHECK_NOW_EPOCH:-$(date -u +%s)}` and `RENEWAL_THRESHOLD_SECONDS=$((3 * 86400))`. Trigger the threshold when `not_after_epoch - CHECK_NOW_EPOCH <= RENEWAL_THRESHOLD_SECONDS`; do not base the decision on the rounded display value. Apply decision precedence in this order: missing, parse-error, hostname-mismatch, not-yet-valid, expired, renewal-threshold, valid.
+Parse the two positional arguments, use `openssl x509 -checkhost`, parse `notBefore` and `notAfter` with GNU `date`, calculate floor days remaining, and emit JSON through Python's standard `json` module. Use `CHECK_NOW_EPOCH=${CHECK_NOW_EPOCH:-$(date -u +%s)}` and `RENEWAL_THRESHOLD_SECONDS=$((3 * 86400))`. Trigger the threshold when `not_after_epoch - CHECK_NOW_EPOCH <= RENEWAL_THRESHOLD_SECONDS`; do not base the decision on the rounded display value. Apply decision precedence in this order: missing, parse-error, hostname-mismatch, not-yet-valid, expired, renewal-threshold, valid.
 
 The successful JSON shape must be:
 
-```bash
-jq -n \
-  --argjson parseable "$parseable" \
-  --argjson hostname_valid "$hostname_valid" \
-  --argjson currently_valid "$currently_valid" \
-  --argjson expired "$expired" \
-  --argjson days_remaining "$days_remaining" \
-  --argjson renewal_required "$renewal_required" \
-  --arg reason "$reason" \
-  '{parseable:$parseable,hostname_valid:$hostname_valid,currently_valid:$currently_valid,expired:$expired,days_remaining:$days_remaining,renewal_required:$renewal_required,reason:$reason}'
+```python
+print(json.dumps({
+    "parseable": parseable,
+    "hostname_valid": hostname_valid,
+    "currently_valid": currently_valid,
+    "expired": expired,
+    "days_remaining": days_remaining,
+    "renewal_required": renewal_required,
+    "reason": reason,
+}, separators=(",", ":")))
 ```
 
 - [ ] **Step 5: Run focused tests**
@@ -158,19 +158,17 @@ git commit -m "feat: inspect certificate renewal state"
 
 Create `tests/generate-status.test.sh`. Generate matching 4-day and 3-day chains, set `fixed_now=$(date -u +%Y-%m-%dT%H:%M:%SZ)` and `STATUS_NOW=$fixed_now`, and assert all keys exist:
 
-```bash
-scripts/generate-status.sh "$tmp/valid/fullchain.pem" "$tmp/status.json" "$domain"
-jq -e --arg now "$fixed_now" '
-  .domain == "valoutils-tools.windowsed.me" and
-  .status == "valid" and
-  (.issuer | length > 0) and
-  (.valid_from | endswith("Z")) and
-  (.valid_until | endswith("Z")) and
-  (.days_remaining | type == "number") and
-  (.fingerprint_sha256 | test("^([0-9A-F]{2}:){31}[0-9A-F]{2}$")) and
-  .last_checked == $now and
-  .last_renewal == ""
-' "$tmp/status.json"
+```python
+with open(status_path, encoding="utf-8") as handle:
+    data = json.load(handle)
+assert data["domain"] == "valoutils-tools.windowsed.me"
+assert data["status"] == "valid"
+assert data["issuer"]
+assert data["valid_from"].endswith("Z")
+assert data["valid_until"].endswith("Z")
+assert isinstance(data["days_remaining"], int)
+assert data["last_checked"] == fixed_now
+assert data["last_renewal"] == ""
 ```
 
 Run it again with renewal value `2026-08-09T14:40:00Z`, then without that argument, and assert the second run preserves the prior renewal value. Assert a 3-day certificate yields `renewal-soon`, a clock after `notAfter` yields `expired`, and override `error` yields `error` while retaining any parseable metadata.
@@ -185,15 +183,15 @@ Expected: FAIL because `scripts/generate-status.sh` does not exist.
 
 Use `openssl x509` for issuer, start date, end date, and SHA-256 fingerprint. Convert OpenSSL dates with `date -u -d "$value" +%Y-%m-%dT%H:%M:%SZ`. Read the existing renewal value safely:
 
-```bash
-previous_renewal=""
-if [[ -s "$output_path" ]] && jq -e . "$output_path" >/dev/null 2>&1; then
-  previous_renewal=$(jq -r '.last_renewal // ""' "$output_path")
-fi
-last_renewal=${renewal_iso:-$previous_renewal}
+```python
+try:
+    with open(output_path, encoding="utf-8") as handle:
+        previous_renewal = json.load(handle).get("last_renewal", "")
+except (OSError, ValueError, TypeError):
+    previous_renewal = ""
 ```
 
-Write JSON with `jq -n`, create the temporary file inside `dirname "$output_path"`, validate it with `jq -e`, and move it over the destination. For a missing or malformed certificate, emit empty issuer/date/fingerprint fields, `days_remaining=0`, and status `error` unless an explicit status override was supplied.
+Write JSON with Python's standard library, create the temporary file inside `dirname "$output_path"`, validate it with `python -m json.tool`, and move it over the destination. For a missing or malformed certificate, emit empty issuer/date/fingerprint fields, `days_remaining=0`, and status `error` unless an explicit status override was supplied.
 
 - [ ] **Step 4: Add initial public files**
 
@@ -201,9 +199,9 @@ Create an empty tracked `docs/certificate.pem`. Generate `docs/cert-status.json`
 
 - [ ] **Step 5: Run focused tests and validate initial JSON**
 
-Run: `bash tests/generate-status.test.sh && jq -e . docs/cert-status.json`
+Run: `bash tests/generate-status.test.sh && python -m json.tool docs/cert-status.json >/dev/null`
 
-Expected: PASS and jq exits 0.
+Expected: PASS and Python exits 0.
 
 - [ ] **Step 6: Commit the status unit**
 
@@ -529,7 +527,7 @@ Run:
 ```bash
 bash -n scripts/*.sh tests/*.sh
 bash tests/run.sh
-jq -e . docs/cert-status.json
+python -m json.tool docs/cert-status.json >/dev/null
 git diff --check
 git status --short
 ```
