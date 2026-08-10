@@ -48,9 +48,9 @@ GitHub supplies `GITHUB_TOKEN`. The workflow grants it only the permissions requ
 - contains a parseable X.509 certificate;
 - is currently within its validity period;
 - contains `valoutils-tools.windowsed.me` in the SAN extension; and
-- has more than 30 full days remaining.
+- has more than 3 full days remaining.
 
-The script emits machine-readable fields for the workflow and status generator. It requests renewal when the certificate is absent, malformed, expired, hostname-mismatched, or has 30 days or less remaining. A manual run with `force_renew=true` also requests renewal. A normal manual run follows the same rules as a scheduled run.
+The script emits machine-readable fields for the workflow and status generator. It requests renewal when the certificate is absent, malformed, expired, hostname-mismatched, or has 3 days or less remaining. A manual run with `force_renew=true` also requests renewal. A normal manual run follows the same rules as a scheduled run.
 
 ## Renewal and validation
 
@@ -90,8 +90,8 @@ The generator stores timestamps in UTC ISO-8601 form. It preserves the previous 
 
 Status values follow these rules:
 
-- `valid`: certificate has more than 30 days remaining.
-- `renewal-soon`: certificate has 30 days or less remaining and renewal has not succeeded.
+- `valid`: certificate has more than 3 days remaining.
+- `renewal-soon`: certificate has 3 days or less remaining and renewal has not succeeded.
 - `expired`: certificate validity has ended.
 - `error`: parsing, validation, or renewal failed.
 
@@ -147,7 +147,7 @@ Local tests generate temporary certificates and do not contact Cloudflare or Let
 - missing and malformed certificate inputs;
 - expired certificate;
 - wrong SAN;
-- renewal decisions above, below, and exactly at 30 days;
+- renewal decisions above, below, and exactly at 3 days;
 - private-key mismatch;
 - status JSON generation and renewal timestamp preservation;
 - empty-password PFX creation and reopening; and

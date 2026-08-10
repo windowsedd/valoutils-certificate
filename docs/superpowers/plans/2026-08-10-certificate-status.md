@@ -12,7 +12,7 @@
 
 - Manage only `valoutils-tools.windowsed.me`.
 - Use Let's Encrypt production issuance with Cloudflare DNS-01; never use HTTP-01.
-- Renew when the certificate is missing, malformed, expired, hostname-mismatched, forced, or has 30 days or less remaining.
+- Renew when the certificate is missing, malformed, expired, hostname-mismatched, forced, or has 3 days or less remaining.
 - Store UTC timestamps as ISO-8601 strings and display them in `Asia/Taipei`.
 - Keep the last valid `docs/certificate.pem` when renewal fails.
 - Never commit or publish a private key, raw PFX, PKCS#12 file, Cloudflare credential file, or Certbot state.
@@ -81,7 +81,7 @@ make_chain() {
 
 - [ ] **Step 2: Write failing inspection tests**
 
-Create `tests/check-cert.test.sh`. Generate a 31-day matching certificate, a 30-day matching certificate, and a wrong-host certificate. Assert:
+Create `tests/check-cert.test.sh`. Generate a 4-day matching certificate, a 3-day matching certificate, and a wrong-host certificate. Assert:
 
 ```bash
 result=$(scripts/check-cert.sh "$tmp/valid/fullchain.pem" "$domain")
@@ -100,7 +100,7 @@ result=$(scripts/check-cert.sh "$tmp/missing.pem" "$domain")
 assert_eq "missing" "$(jq -r .reason <<<"$result")"
 ```
 
-Set `CHECK_NOW_EPOCH` to one second after the 31-day certificate's `notAfter` value and assert `expired=true`, `currently_valid=false`, and `reason=expired`. Write random text to a PEM file and assert `reason=parse-error`.
+Set `CHECK_NOW_EPOCH` to one second after the 4-day certificate's `notAfter` value and assert `expired=true`, `currently_valid=false`, and `reason=expired`. Write random text to a PEM file and assert `reason=parse-error`.
 
 - [ ] **Step 3: Run the test and confirm the missing-script failure**
 
@@ -110,7 +110,7 @@ Expected: FAIL because `scripts/check-cert.sh` does not exist.
 
 - [ ] **Step 4: Implement `scripts/check-cert.sh`**
 
-Parse the two positional arguments, use `openssl x509 -checkhost`, parse `notBefore` and `notAfter` with GNU `date`, calculate floor days remaining, and emit JSON through `jq -n`. Use `CHECK_NOW_EPOCH=${CHECK_NOW_EPOCH:-$(date -u +%s)}`. Apply decision precedence in this order: missing, parse-error, hostname-mismatch, not-yet-valid, expired, renewal-threshold, valid.
+Parse the two positional arguments, use `openssl x509 -checkhost`, parse `notBefore` and `notAfter` with GNU `date`, calculate floor days remaining, and emit JSON through `jq -n`. Use `CHECK_NOW_EPOCH=${CHECK_NOW_EPOCH:-$(date -u +%s)}` and `RENEWAL_THRESHOLD_SECONDS=$((3 * 86400))`. Trigger the threshold when `not_after_epoch - CHECK_NOW_EPOCH <= RENEWAL_THRESHOLD_SECONDS`; do not base the decision on the rounded display value. Apply decision precedence in this order: missing, parse-error, hostname-mismatch, not-yet-valid, expired, renewal-threshold, valid.
 
 The successful JSON shape must be:
 
@@ -156,7 +156,7 @@ git commit -m "feat: inspect certificate renewal state"
 
 - [ ] **Step 1: Write failing status tests**
 
-Create `tests/generate-status.test.sh`. Generate matching 31-day and 30-day chains, set `fixed_now=$(date -u +%Y-%m-%dT%H:%M:%SZ)` and `STATUS_NOW=$fixed_now`, and assert all keys exist:
+Create `tests/generate-status.test.sh`. Generate matching 4-day and 3-day chains, set `fixed_now=$(date -u +%Y-%m-%dT%H:%M:%SZ)` and `STATUS_NOW=$fixed_now`, and assert all keys exist:
 
 ```bash
 scripts/generate-status.sh "$tmp/valid/fullchain.pem" "$tmp/status.json" "$domain"
@@ -173,7 +173,7 @@ jq -e --arg now "$fixed_now" '
 ' "$tmp/status.json"
 ```
 
-Run it again with renewal value `2026-08-09T14:40:00Z`, then without that argument, and assert the second run preserves the prior renewal value. Assert a 30-day certificate yields `renewal-soon`, a clock after `notAfter` yields `expired`, and override `error` yields `error` while retaining any parseable metadata.
+Run it again with renewal value `2026-08-09T14:40:00Z`, then without that argument, and assert the second run preserves the prior renewal value. Assert a 3-day certificate yields `renewal-soon`, a clock after `notAfter` yields `expired`, and override `error` yields `error` while retaining any parseable metadata.
 
 - [ ] **Step 2: Run the status test and confirm failure**
 
@@ -493,7 +493,7 @@ git commit -m "feat: automate certificate renewal and Pages deployment"
 
 - [ ] **Step 1: Write the README acceptance checklist first**
 
-Create a temporary checklist in the implementation notes and verify the final README contains exact strings for `CF_API_TOKEN`, `LETSENCRYPT_EMAIL`, `PFX_AGE_RECIPIENT`, `Zone → DNS → Edit`, `force_renew`, `30 days`, `DNS-01`, `docs/certificate.pem`, `docs/cert-status.json`, `.pfx.age`, `age --decrypt`, and `GitHub Actions` as the Pages source.
+Create a temporary checklist in the implementation notes and verify the final README contains exact strings for `CF_API_TOKEN`, `LETSENCRYPT_EMAIL`, `PFX_AGE_RECIPIENT`, `Zone → DNS → Edit`, `force_renew`, `3 days`, `DNS-01`, `docs/certificate.pem`, `docs/cert-status.json`, `.pfx.age`, `age --decrypt`, and `GitHub Actions` as the Pages source.
 
 - [ ] **Step 2: Write the operator README**
 
