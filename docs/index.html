@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="description" content="Live TLS certificate status for valoutils-tools.windowsed.me">
+    <title>ValoUtils Certificate Status</title>
+    <link rel="stylesheet" href="./style.css">
+    <script type="module" src="./script.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="site-header">
+        <a class="brand" href="./" aria-label="ValoUtils certificate status home">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24">
+            <path d="M12 2.5 20 6v5.7c0 4.8-3.3 8.7-8 9.8-4.7-1.1-8-5-8-9.8V6l8-3.5Z" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            <path d="m8.6 12.1 2.1 2.1 4.8-5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"/>
+          </svg>
+          <span>ValoUtils</span>
+        </a>
+        <span class="eyebrow">Certificate monitor</span>
+      </header>
+
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="kicker">TLS certificate status</p>
+          <h1 id="page-title">valoutils-tools<wbr>.windowsed.me</h1>
+          <p id="status-message" class="summary">Loading the latest certificate check.</p>
+        </div>
+        <div id="status" class="status-badge status--error" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span data-status-label>Loading</span>
+        </div>
+      </section>
+
+      <section class="details" aria-labelledby="details-title">
+        <div class="section-heading">
+          <h2 id="details-title">Certificate details</h2>
+          <a class="certificate-link" href="./certificate.pem" download>
+            Download public chain
+            <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
+              <path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
+            </svg>
+          </a>
+        </div>
+
+        <dl class="detail-grid">
+          <div class="detail-card detail-card--wide">
+            <dt>Domain</dt>
+            <dd id="domain">Loading</dd>
+          </div>
+          <div class="detail-card">
+            <dt>Issuer</dt>
+            <dd id="issuer">Loading</dd>
+          </div>
+          <div class="detail-card detail-card--accent">
+            <dt>Days remaining</dt>
+            <dd id="days-remaining">Loading</dd>
+          </div>
+          <div class="detail-card">
+            <dt>Valid from</dt>
+            <dd id="valid-from">Loading</dd>
+          </div>
+          <div class="detail-card">
+            <dt>Expires</dt>
+            <dd id="expires">Loading</dd>
+          </div>
+          <div class="detail-card detail-card--wide">
+            <dt>SHA-256 fingerprint</dt>
+            <dd id="fingerprint" class="fingerprint">Loading</dd>
+          </div>
+          <div class="detail-card">
+            <dt>Last checked</dt>
+            <dd id="last-checked">Loading</dd>
+          </div>
+          <div class="detail-card">
+            <dt>Last successful renewal</dt>
+            <dd id="last-renewal">Loading</dd>
+          </div>
+        </dl>
+      </section>
+
+      <footer>
+        <span>Automated daily with GitHub Actions</span>
+        <span aria-hidden="true">·</span>
+        <span>Times shown in Asia/Taipei</span>
+      </footer>
+    </main>
+  </body>
+</html>

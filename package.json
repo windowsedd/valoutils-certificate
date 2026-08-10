@@ -1,0 +1,8 @@
+{
+  "name": "valoutils-certificate-status",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:site": "node --test tests/site.test.js"
+  }
+}
