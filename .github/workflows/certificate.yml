@@ -17,6 +17,7 @@ concurrency:
 
 env:
   DOMAIN: valoutils-tools.windowsed.me
+  PFX_URL: https://valoutils-tools.windowsed.me/valoutils/localhost.pfx
 
 jobs:
   certificate:
@@ -43,15 +44,38 @@ jobs:
       - name: Run local test suite
         run: bash tests/run.sh
 
+      - name: Restore published PFX
+        id: pfx
+        run: |
+          set -euo pipefail
+          mkdir -p docs/valoutils
+          pfx_tmp=$(mktemp)
+          trap 'rm -f "$pfx_tmp"' EXIT
+          if curl --fail --silent --show-error --location --max-time 20 \
+              --max-filesize 1048576 \
+              --output "$pfx_tmp" "$PFX_URL" \
+            && bash scripts/check-pfx.sh "$pfx_tmp" "$DOMAIN"; then
+            mv "$pfx_tmp" docs/valoutils/localhost.pfx
+            printf 'exists=true\n' >> "$GITHUB_OUTPUT"
+          else
+            rm -f docs/valoutils/localhost.pfx
+            printf 'exists=false\n' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Inspect stored certificate
         id: inspect
         env:
           FORCE_RENEW: ${{ inputs.force_renew || false }}
+          PFX_EXISTS: ${{ steps.pfx.outputs.exists }}
         run: |
           set -euo pipefail
           inspection=$(scripts/check-cert.sh "docs/certificate.pem" "$DOMAIN")
           renew=$(python -c 'import json,sys; print(str(json.loads(sys.argv[1])["renewal_required"]).lower())' "$inspection")
           reason=$(python -c 'import json,sys; print(json.loads(sys.argv[1])["reason"])' "$inspection")
+          if [[ "$PFX_EXISTS" != "true" ]]; then
+            renew=true
+            reason=pfx-missing
+          fi
           if [[ "$FORCE_RENEW" == "true" ]]; then
             renew=true
             reason=forced
@@ -65,17 +89,14 @@ jobs:
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           LETSENCRYPT_EMAIL: ${{ vars.LETSENCRYPT_EMAIL }}
-          PFX_AGE_RECIPIENT: ${{ vars.PFX_AGE_RECIPIENT }}
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check certbot==5.7.0 certbot-dns-cloudflare==5.7.0
-          sudo apt-get update
-          sudo apt-get install --yes age
           mkdir -p artifacts
           scripts/renew-cert.sh \
             "$DOMAIN" \
             "docs/certificate.pem" \
-            "artifacts/$DOMAIN.pfx.age" \
+            "docs/valoutils/localhost.pfx" \
             | tee artifacts/renewal.out
 
       - name: Generate public status
@@ -94,15 +115,6 @@ jobs:
             scripts/generate-status.sh \
               docs/certificate.pem docs/cert-status.json "$DOMAIN"
           fi
-
-      - name: Upload encrypted PFX
-        if: steps.inspect.outputs.renew == 'true' && steps.renew.outcome == 'success'
-        uses: actions/upload-artifact@v7
-        with:
-          name: valoutils-tools-windowsed-me-pfx
-          path: artifacts/valoutils-tools.windowsed.me.pfx.age
-          if-no-files-found: error
-          retention-days: 7
 
       - name: Commit public certificate status
         run: |

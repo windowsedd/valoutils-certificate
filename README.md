@@ -21,18 +21,7 @@ The status site displays the domain, state, issuer, validity dates, days remaini
 
 ## Repository setup
 
-### 1. Create an age identity
-
-Install [age](https://github.com/FiloSottile/age) on your computer, then generate an identity that never leaves your machine:
-
-```bash
-age-keygen -o age-identity.txt
-age-keygen -y age-identity.txt
-```
-
-The second command prints a public recipient beginning with `age1`. Keep `age-identity.txt` private and backed up. Anyone who loses that identity cannot decrypt later PFX artifacts.
-
-### 2. Create the Cloudflare token
+### 1. Create the Cloudflare token
 
 Create a restricted Cloudflare API token with:
 
@@ -41,7 +30,7 @@ Create a restricted Cloudflare API token with:
 
 Do not use the Cloudflare Global API Key.
 
-### 3. Configure GitHub
+### 2. Configure GitHub
 
 In the repository settings, add:
 
@@ -49,17 +38,16 @@ In the repository settings, add:
 | --- | --- | --- |
 | Actions secret | `CF_API_TOKEN` | Restricted Cloudflare token |
 | Actions variable | `LETSENCRYPT_EMAIL` | Let's Encrypt account email |
-| Actions variable | `PFX_AGE_RECIPIENT` | Public `age1...` recipient |
 
 Under **Settings → Pages → Build and deployment**, choose **GitHub Actions** as the source.
 
 The workflow uses GitHub's automatic `GITHUB_TOKEN`. Repository Actions settings must allow workflows to create commits with that token.
 
-### 4. Push and issue the first certificate
+### 3. Push and issue the first certificate
 
 The repository starts with an empty `docs/certificate.pem`. Push the repository, open **Actions → Certificate Status**, and run the workflow. Leave `force_renew` disabled for the initial run; the missing certificate already triggers issuance.
 
-After the run succeeds, GitHub Pages publishes the current status and public certificate chain.
+After the run succeeds, GitHub Pages publishes the current status, certificate chain, and PFX.
 
 ## Renewal rules
 
@@ -68,44 +56,41 @@ Renewal starts when any condition is true:
 - 3 days or fewer remain.
 - The certificate is missing, expired, malformed, or not currently valid.
 - The SAN does not match `valoutils-tools.windowsed.me`.
+- The published PFX is missing, expired, malformed, or has the wrong SAN.
 - A manual run sets `force_renew` to `true`.
 
 A normal manual run does not force renewal. It follows the same checks as the daily schedule.
 
 If renewal fails, the workflow keeps the previous public certificate, publishes an `error` status, deploys that status to Pages, and marks the Actions run as failed.
 
-## Public and private files
+## Published files
 
 These files are public and safe for GitHub Pages:
 
 - `docs/certificate.pem`: public leaf certificate and Let's Encrypt chain.
 - `docs/cert-status.json`: public certificate metadata and check timestamps.
 
-The workflow creates a PFX containing the private key, hostname certificate, and full chain. The PFX has an empty password because the consuming application requires one. An empty password does not protect the private key.
+The workflow also publishes `docs/valoutils/localhost.pfx` at:
 
-The raw PFX and private key exist only in the workflow's temporary directory. The workflow encrypts the PFX to `PFX_AGE_RECIPIENT`, uploads only the `.pfx.age` file as a seven-day Actions artifact, and removes the temporary material. Never commit or publish the decrypted PFX, private key, age identity, or Cloudflare token.
+`https://valoutils-tools.windowsed.me/valoutils/localhost.pfx`
 
-## Download and decrypt the PFX
+The PFX contains the private key, hostname certificate, and full chain. It has an empty password because the consuming application requires one. Anyone can download and reuse this private key. Publishing it is an explicit project decision; do not use this certificate to protect secrets or authenticate a public production service.
 
-After a successful renewal:
+The PFX is included in the temporary GitHub Pages deployment but ignored by Git, so it does not enter repository history. The Cloudflare token remains a GitHub Actions secret and must never be published.
 
-1. Open the successful workflow run in GitHub Actions.
-2. Download the `valoutils-tools-windowsed-me-pfx` artifact.
-3. Extract `valoutils-tools.windowsed.me.pfx.age` locally.
-4. Decrypt it with your private age identity:
+## Download the PFX
 
 ```bash
-age --decrypt \
-  -i age-identity.txt \
-  -o valoutils-tools.windowsed.me.pfx \
-  valoutils-tools.windowsed.me.pfx.age
+curl --fail --location \
+  --output localhost.pfx \
+  https://valoutils-tools.windowsed.me/valoutils/localhost.pfx
 ```
 
-Move the decrypted PFX directly into its protected application location. Delete extra copies after use. The encrypted GitHub artifact expires after seven days.
+The application can use this URL directly as its PFX download source.
 
 ## Local tests
 
-The tests generate temporary local certificates and use fake Certbot and age commands. They never contact Let's Encrypt or Cloudflare.
+The tests generate temporary local certificates and use a fake Certbot command. They never contact Let's Encrypt or Cloudflare.
 
 On Linux, macOS, or Git Bash for Windows, run:
 

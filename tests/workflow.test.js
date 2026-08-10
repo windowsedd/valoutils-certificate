@@ -30,19 +30,20 @@ test("workflow renews, records failure status, and commits only public files", a
   assert.match(yaml, /scripts\/generate-status\.sh/);
   assert.match(yaml, /CF_API_TOKEN:\s*\$\{\{ secrets\.CF_API_TOKEN \}\}/);
   assert.match(yaml, /LETSENCRYPT_EMAIL:\s*\$\{\{ vars\.LETSENCRYPT_EMAIL \}\}/);
-  assert.match(yaml, /PFX_AGE_RECIPIENT:\s*\$\{\{ vars\.PFX_AGE_RECIPIENT \}\}/);
+  assert.match(yaml, /PFX_URL:\s*https:\/\/valoutils-tools\.windowsed\.me\/valoutils\/localhost\.pfx/);
+  assert.match(yaml, /curl[\s\S]*\$PFX_URL/);
+  assert.match(yaml, /scripts\/check-pfx\.sh[\s\S]*\$DOMAIN/);
+  assert.match(yaml, /reason=pfx-missing/);
   assert.match(yaml, /github-actions\[bot\]/);
   assert.match(yaml, /git add docs\/certificate\.pem docs\/cert-status\.json/);
   assert.match(yaml, /git diff --cached --quiet/);
   assert.match(yaml, /Report renewal failure/);
 });
 
-test("workflow uploads only encrypted PFX and deploys Pages after failures", async () => {
+test("workflow publishes the raw PFX only through Pages and deploys after failures", async () => {
   const yaml = await readFile(workflowUrl, "utf8");
-  assert.match(yaml, /actions\/upload-artifact@v7/);
-  assert.match(yaml, /valoutils-tools\.windowsed\.me\.pfx\.age/);
-  assert.match(yaml, /retention-days:\s*7/);
-  assert.doesNotMatch(yaml, /path:\s*[^\n]*\.pfx\s*$/m);
+  assert.match(yaml, /docs\/valoutils\/localhost\.pfx/);
+  assert.doesNotMatch(yaml, /PFX_AGE_RECIPIENT|\.pfx\.age|actions\/upload-artifact/);
   assert.match(yaml, /actions\/configure-pages@v5/);
   assert.match(yaml, /actions\/upload-pages-artifact@v4/);
   assert.match(yaml, /actions\/deploy-pages@v4/);

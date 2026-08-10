@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-domain="${1:?usage: renew-cert.sh DOMAIN PUBLIC_CERT_PATH ENCRYPTED_PFX_PATH}"
-public_certificate_path="${2:?usage: renew-cert.sh DOMAIN PUBLIC_CERT_PATH ENCRYPTED_PFX_PATH}"
-encrypted_pfx_path="${3:?usage: renew-cert.sh DOMAIN PUBLIC_CERT_PATH ENCRYPTED_PFX_PATH}"
+domain="${1:?usage: renew-cert.sh DOMAIN PUBLIC_CERT_PATH PFX_PATH}"
+public_certificate_path="${2:?usage: renew-cert.sh DOMAIN PUBLIC_CERT_PATH PFX_PATH}"
+pfx_path="${3:?usage: renew-cert.sh DOMAIN PUBLIC_CERT_PATH PFX_PATH}"
 
 : "${CF_API_TOKEN:?CF_API_TOKEN is required}"
 : "${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL is required}"
-: "${PFX_AGE_RECIPIENT:?PFX_AGE_RECIPIENT is required}"
 
 umask 077
 work_dir=$(mktemp -d)
 public_tmp=""
-encrypted_tmp=""
+pfx_tmp=""
 
 cleanup() {
   rm -rf "$work_dir"
   [[ -z "$public_tmp" ]] || rm -f "$public_tmp"
-  [[ -z "$encrypted_tmp" ]] || rm -f "$encrypted_tmp"
+  [[ -z "$pfx_tmp" ]] || rm -f "$pfx_tmp"
 }
 trap cleanup EXIT
 
@@ -118,19 +117,19 @@ pfx_certificate_count=$(
 openssl pkcs12 -in "$raw_pfx" -passin pass: -nocerts -nodes 2>/dev/null \
   | openssl pkey -noout >/dev/null
 
-mkdir -p "$(dirname "$public_certificate_path")" "$(dirname "$encrypted_pfx_path")"
+mkdir -p "$(dirname "$public_certificate_path")" "$(dirname "$pfx_path")"
 public_tmp=$(mktemp "$(dirname "$public_certificate_path")/.certificate.XXXXXX")
-encrypted_tmp=$(mktemp "$(dirname "$encrypted_pfx_path")/.certificate-pfx.XXXXXX")
+pfx_tmp=$(mktemp "$(dirname "$pfx_path")/.certificate-pfx.XXXXXX")
 cp "$fullchain" "$public_tmp"
-age -r "$PFX_AGE_RECIPIENT" -o "$encrypted_tmp" "$raw_pfx"
-[[ -s "$encrypted_tmp" ]] || {
-  printf 'Encrypted PFX output is empty\n' >&2
+cp "$raw_pfx" "$pfx_tmp"
+[[ -s "$pfx_tmp" ]] || {
+  printf 'PFX output is empty\n' >&2
   exit 1
 }
 
 mv "$public_tmp" "$public_certificate_path"
 public_tmp=""
-mv "$encrypted_tmp" "$encrypted_pfx_path"
-encrypted_tmp=""
+mv "$pfx_tmp" "$pfx_path"
+pfx_tmp=""
 
 printf 'last_renewal=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
