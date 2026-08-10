@@ -2,7 +2,7 @@
 
 ## Goal
 
-Make the certificate workflow create an initial empty-password PFX when no usable PFX exists and publish it at `https://valoutils-tools.windowsed.me/valoutils/localhost.pfx` through GitHub Pages.
+Make the certificate workflow create an initial empty-password PFX when no usable PFX exists and publish it first at `https://windowsedd.github.io/valoutils-certificate/valoutils/localhost.pfx` through GitHub Pages. A custom Pages domain can be wired later.
 
 ## Workflow behavior
 

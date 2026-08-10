@@ -13,7 +13,7 @@ test("README documents setup, automation, and the public PFX risk", async () => 
     "DNS-01",
     "docs/certificate.pem",
     "docs/cert-status.json",
-    "https://valoutils-tools.windowsed.me/valoutils/localhost.pfx",
+    "https://windowsedd.github.io/valoutils-certificate/valoutils/localhost.pfx",
     "localhost.pfx",
     "GitHub Actions",
   ]) {

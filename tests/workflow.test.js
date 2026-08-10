@@ -30,7 +30,7 @@ test("workflow renews, records failure status, and commits only public files", a
   assert.match(yaml, /scripts\/generate-status\.sh/);
   assert.match(yaml, /CF_API_TOKEN:\s*\$\{\{ secrets\.CF_API_TOKEN \}\}/);
   assert.match(yaml, /LETSENCRYPT_EMAIL:\s*\$\{\{ vars\.LETSENCRYPT_EMAIL \}\}/);
-  assert.match(yaml, /PFX_URL:\s*https:\/\/valoutils-tools\.windowsed\.me\/valoutils\/localhost\.pfx/);
+  assert.match(yaml, /PFX_URL:\s*https:\/\/windowsedd\.github\.io\/valoutils-certificate\/valoutils\/localhost\.pfx/);
   assert.match(yaml, /curl[\s\S]*\$PFX_URL/);
   assert.match(yaml, /scripts\/check-pfx\.sh[\s\S]*\$DOMAIN/);
   assert.match(yaml, /reason=pfx-missing/);

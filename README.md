@@ -72,7 +72,7 @@ These files are public and safe for GitHub Pages:
 
 The workflow also publishes `docs/valoutils/localhost.pfx` at:
 
-`https://valoutils-tools.windowsed.me/valoutils/localhost.pfx`
+`https://windowsedd.github.io/valoutils-certificate/valoutils/localhost.pfx`
 
 The PFX contains the private key, hostname certificate, and full chain. It has an empty password because the consuming application requires one. Anyone can download and reuse this private key. Publishing it is an explicit project decision; do not use this certificate to protect secrets or authenticate a public production service.
 
@@ -83,7 +83,7 @@ The PFX is included in the temporary GitHub Pages deployment but ignored by Git,
 ```bash
 curl --fail --location \
   --output localhost.pfx \
-  https://valoutils-tools.windowsed.me/valoutils/localhost.pfx
+  https://windowsedd.github.io/valoutils-certificate/valoutils/localhost.pfx
 ```
 
 The application can use this URL directly as its PFX download source.

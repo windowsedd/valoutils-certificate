@@ -43,10 +43,21 @@ if ! openssl x509 -in "$certificate_path" -noout >/dev/null 2>&1; then
   exit 0
 fi
 
-hostname_valid=false
-if openssl x509 -in "$certificate_path" -noout -checkhost "$expected_domain" >/dev/null 2>&1; then
-  hostname_valid=true
-fi
+hostname_valid=$(
+  CERTIFICATE_PATH="$certificate_path" EXPECTED_DOMAIN="$expected_domain" \
+    python - <<'PY'
+import os
+import ssl
+
+certificate = ssl._ssl._test_decode_cert(os.environ["CERTIFICATE_PATH"])
+expected = os.environ["EXPECTED_DOMAIN"].casefold()
+matches = any(
+    kind == "DNS" and value.casefold() == expected
+    for kind, value in certificate.get("subjectAltName", ())
+)
+print("true" if matches else "false")
+PY
+)
 
 not_before=$(openssl x509 -in "$certificate_path" -noout -startdate | cut -d= -f2-)
 not_after=$(openssl x509 -in "$certificate_path" -noout -enddate | cut -d= -f2-)

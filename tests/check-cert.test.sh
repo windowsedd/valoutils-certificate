@@ -12,6 +12,31 @@ trap 'rm -rf "$tmp"' EXIT
 make_chain "$tmp/valid" "$domain" 4
 make_chain "$tmp/threshold" "$domain" 3
 make_chain "$tmp/wrong" "wrong.windowsed.me" 10
+make_chain "$tmp/near-match" "$domain.attacker" 10
+
+make_special_chain() {
+  local output_dir="$1"
+  local extensions="$2"
+  local common_name="${3:-wrong.windowsed.me}"
+  mkdir -p "$output_dir"
+  openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+    -subj "/CN=ValoUtils Test CA" \
+    -keyout "$output_dir/ca.key" -out "$output_dir/ca.pem" >/dev/null 2>&1
+  openssl req -newkey rsa:2048 -nodes -subj "/CN=$common_name" \
+    -keyout "$output_dir/privkey.pem" -out "$output_dir/leaf.csr" >/dev/null 2>&1
+  printf '%s\n' "$extensions" > "$output_dir/extensions.cnf"
+  openssl x509 -req -in "$output_dir/leaf.csr" \
+    -CA "$output_dir/ca.pem" -CAkey "$output_dir/ca.key" -CAcreateserial \
+    -days 10 -extfile "$output_dir/extensions.cnf" -extensions certificate \
+    -out "$output_dir/cert.pem" >/dev/null 2>&1
+  cat "$output_dir/cert.pem" "$output_dir/ca.pem" > "$output_dir/fullchain.pem"
+}
+
+make_special_chain "$tmp/no-san" $'[certificate]\nextendedKeyUsage=serverAuth'
+make_special_chain "$tmp/no-san-matching-cn" \
+  $'[certificate]\nextendedKeyUsage=serverAuth' "$domain"
+make_special_chain "$tmp/uri-comma" \
+  $'[certificate]\nsubjectAltName=@alternative_names\nextendedKeyUsage=serverAuth\n[alternative_names]\nURI.1=https://evil.invalid/,DNS:'"$domain"
 
 result=$(scripts/check-cert.sh "$tmp/valid/fullchain.pem" "$domain")
 assert_eq "true" "$(json_get "$result" parseable)" "valid certificate parseability"
@@ -27,6 +52,19 @@ result=$(scripts/check-cert.sh "$tmp/wrong/fullchain.pem" "$domain")
 assert_eq "false" "$(json_get "$result" hostname_valid)" "wrong hostname"
 assert_eq "true" "$(json_get "$result" renewal_required)" "wrong-host renewal decision"
 assert_eq "hostname-mismatch" "$(json_get "$result" reason)" "wrong-host reason"
+
+result=$(scripts/check-cert.sh "$tmp/near-match/fullchain.pem" "$domain")
+assert_eq "false" "$(json_get "$result" hostname_valid)" "near-match hostname"
+assert_eq "hostname-mismatch" "$(json_get "$result" reason)" "near-match reason"
+
+result=$(scripts/check-cert.sh "$tmp/no-san/fullchain.pem" "$domain")
+assert_eq "false" "$(json_get "$result" hostname_valid)" "missing SAN hostname"
+
+result=$(scripts/check-cert.sh "$tmp/no-san-matching-cn/fullchain.pem" "$domain")
+assert_eq "false" "$(json_get "$result" hostname_valid)" "matching CN without SAN"
+
+result=$(scripts/check-cert.sh "$tmp/uri-comma/fullchain.pem" "$domain")
+assert_eq "false" "$(json_get "$result" hostname_valid)" "URI comma hostname"
 
 result=$(scripts/check-cert.sh "$tmp/missing.pem" "$domain")
 assert_eq "false" "$(json_get "$result" parseable)" "missing certificate parseability"

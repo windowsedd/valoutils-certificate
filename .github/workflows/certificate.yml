@@ -17,7 +17,7 @@ concurrency:
 
 env:
   DOMAIN: valoutils-tools.windowsed.me
-  PFX_URL: https://valoutils-tools.windowsed.me/valoutils/localhost.pfx
+  PFX_URL: https://windowsedd.github.io/valoutils-certificate/valoutils/localhost.pfx
 
 jobs:
   certificate:
