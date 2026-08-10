@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$repo_root"
+source tests/helpers.sh
+
+domain="valoutils-tools.windowsed.me"
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+make_chain "$tmp/valid" "$domain" 4
+make_chain "$tmp/threshold" "$domain" 3
+fixed_now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+STATUS_NOW="$fixed_now" scripts/generate-status.sh \
+  "$tmp/valid/fullchain.pem" "$tmp/status.json" "$domain"
+status_json=$(<"$tmp/status.json")
+assert_eq "$domain" "$(json_get "$status_json" domain)" "status domain"
+assert_eq "valid" "$(json_get "$status_json" status)" "valid status"
+assert_eq "$fixed_now" "$(json_get "$status_json" last_checked)" "last checked"
+assert_eq "" "$(json_get "$status_json" last_renewal)" "initial renewal timestamp"
+
+python - "$tmp/status.json" <<'PY'
+import json
+import re
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+assert data["issuer"]
+assert data["valid_from"].endswith("Z")
+assert data["valid_until"].endswith("Z")
+assert isinstance(data["days_remaining"], int)
+assert re.fullmatch(r"([0-9A-F]{2}:){31}[0-9A-F]{2}", data["fingerprint_sha256"])
+PY
+
+renewed_at="2026-08-09T14:40:00Z"
+STATUS_NOW="$fixed_now" scripts/generate-status.sh \
+  "$tmp/valid/fullchain.pem" "$tmp/status.json" "$domain" "" "$renewed_at"
+STATUS_NOW="$fixed_now" scripts/generate-status.sh \
+  "$tmp/valid/fullchain.pem" "$tmp/status.json" "$domain"
+status_json=$(<"$tmp/status.json")
+assert_eq "$renewed_at" "$(json_get "$status_json" last_renewal)" "preserved renewal timestamp"
+
+STATUS_NOW="$fixed_now" scripts/generate-status.sh \
+  "$tmp/threshold/fullchain.pem" "$tmp/threshold-status.json" "$domain"
+assert_eq "renewal-soon" \
+  "$(json_get "$(<"$tmp/threshold-status.json")" status)" \
+  "threshold status"
+
+not_after=$(openssl x509 -in "$tmp/valid/fullchain.pem" -noout -enddate | cut -d= -f2-)
+expired_epoch=$(date -u -d "$not_after" +%s)
+expired_iso=$(date -u -d "@$((expired_epoch + 1))" +%Y-%m-%dT%H:%M:%SZ)
+STATUS_NOW="$expired_iso" scripts/generate-status.sh \
+  "$tmp/valid/fullchain.pem" "$tmp/expired-status.json" "$domain"
+assert_eq "expired" "$(json_get "$(<"$tmp/expired-status.json")" status)" "expired status"
+
+printf 'bad certificate\n' > "$tmp/malformed.pem"
+STATUS_NOW="$fixed_now" scripts/generate-status.sh \
+  "$tmp/malformed.pem" "$tmp/error-status.json" "$domain" error
+error_json=$(<"$tmp/error-status.json")
+assert_eq "error" "$(json_get "$error_json" status)" "error override"
+assert_eq "" "$(json_get "$error_json" issuer)" "malformed issuer"
+
+printf 'generate-status tests passed\n'
