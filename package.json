@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "bash tests/run.sh",
     "test:site": "node --test tests/site.test.js"
   }
 }
