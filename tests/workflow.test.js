@@ -9,8 +9,8 @@ test("workflow supports daily and manual threshold-aware runs", async () => {
   assert.match(yaml, /cron:\s*["']23 4 \* \* \*["']/);
   assert.match(yaml, /workflow_dispatch:/);
   assert.match(yaml, /force_renew:[\s\S]*default:\s*false/);
-  assert.match(yaml, /scripts\/check-cert\.sh/);
-  assert.match(yaml, /steps\.inspect\.outputs\.renew/);
+  assert.match(yaml, /scripts\/certificate\.sh/);
+  assert.match(yaml, /--force-renew/);
 
   const minute = yaml.match(/cron:\s*["'](\d+)\s/)?.[1];
   assert.notEqual(minute, "0");
@@ -24,28 +24,40 @@ test("workflow limits permissions and serializes certificate operations", async 
   assert.match(yaml, /id-token:\s*write/);
 });
 
-test("workflow renews, records failure status, and commits only public files", async () => {
+test("workflow renews through certbot and fails visibly on errors", async () => {
   const yaml = await readFile(workflowUrl, "utf8");
-  assert.match(yaml, /scripts\/renew-cert\.sh/);
-  assert.match(yaml, /scripts\/generate-status\.sh/);
+  assert.match(
+    yaml,
+    /certbot==["']?[\d.]+["']?\s+["']?certbot-dns-cloudflare==["']?[\d.]+["']?/,
+  );
   assert.match(yaml, /CF_API_TOKEN:\s*\$\{\{ secrets\.CF_API_TOKEN \}\}/);
   assert.match(yaml, /LETSENCRYPT_EMAIL:\s*\$\{\{ vars\.LETSENCRYPT_EMAIL \}\}/);
-  assert.match(yaml, /PFX_URL:\s*https:\/\/windowsedd\.github\.io\/valoutils-certificate\/valoutils\/localhost\.pfx/);
-  assert.match(yaml, /curl[\s\S]*\$PFX_URL/);
-  assert.match(yaml, /scripts\/check-pfx\.sh[\s\S]*\$DOMAIN/);
-  assert.match(yaml, /reason=pfx-missing/);
-  assert.match(yaml, /github-actions\[bot\]/);
-  assert.match(yaml, /git add docs\/certificate\.pem docs\/cert-status\.json/);
-  assert.match(yaml, /git diff --cached --quiet/);
-  assert.match(yaml, /Report renewal failure/);
+  assert.match(yaml, /continue-on-error:\s*true/);
+  assert.match(yaml, /steps\.certificate\.outcome == 'failure'/);
 });
 
-test("workflow publishes the raw PFX only through Pages and deploys after failures", async () => {
+test("workflow commits only meaningful public certificate changes", async () => {
   const yaml = await readFile(workflowUrl, "utf8");
-  assert.match(yaml, /docs\/valoutils\/localhost\.pfx/);
+  assert.match(yaml, /git add docs\/certificate\.pem/);
+  assert.match(yaml, /git diff --cached --quiet/);
+  assert.match(yaml, /github-actions\[bot\]/);
+  assert.doesNotMatch(yaml, /git add[^#\n]*cert-status/);
+});
+
+test("workflow republishes the PFX and deploys the generated status", async () => {
+  const yaml = await readFile(workflowUrl, "utf8");
+  assert.match(yaml, /PFX_URL:\s*https:\/\/windowsedd\.github\.io\/valoutils-certificate\/valoutils\/localhost\.pfx/);
+  assert.match(yaml, /Restore published PFX/);
+  assert.match(yaml, /curl[\s\S]*\$PFX_URL/);
+  assert.match(yaml, /scripts\/check-pfx\.sh[\s\S]*\$DOMAIN/);
+  assert.match(yaml, /steps\.pfx\.outputs\.exists/);
+  assert.match(yaml, /Publish renewed PFX/);
+  assert.match(yaml, /cp pfx-output\/\*\.pfx docs\/valoutils\/localhost\.pfx/);
   assert.doesNotMatch(yaml, /PFX_AGE_RECIPIENT|\.pfx\.age|actions\/upload-artifact/);
+  assert.doesNotMatch(yaml, /git add[^#\n]*localhost\.pfx/);
   assert.match(yaml, /actions\/configure-pages@v5/);
   assert.match(yaml, /actions\/upload-pages-artifact@v4/);
+  assert.match(yaml, /path:\s*docs/);
   assert.match(yaml, /actions\/deploy-pages@v4/);
   assert.match(yaml, /if:\s*always\(\)/);
 });

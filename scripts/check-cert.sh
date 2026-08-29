@@ -4,7 +4,7 @@ set -euo pipefail
 certificate_path="${1:?usage: check-cert.sh CERTIFICATE_PATH EXPECTED_DOMAIN}"
 expected_domain="${2:?usage: check-cert.sh CERTIFICATE_PATH EXPECTED_DOMAIN}"
 now_epoch="${CHECK_NOW_EPOCH:-$(date -u +%s)}"
-renewal_threshold_seconds=$((3 * 86400))
+renewal_threshold_seconds=$((30 * 86400))
 
 emit_result() {
   PARSEABLE="$1" \

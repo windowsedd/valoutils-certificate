@@ -9,10 +9,10 @@ domain="valoutils-tools.windowsed.me"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-make_chain "$tmp/valid" "$domain" 4
-make_chain "$tmp/threshold" "$domain" 3
-make_chain "$tmp/wrong" "wrong.windowsed.me" 10
-make_chain "$tmp/near-match" "$domain.attacker" 10
+make_chain "$tmp/valid" "$domain" 40
+make_chain "$tmp/threshold" "$domain" 10
+make_chain "$tmp/wrong" "wrong.windowsed.me" 40
+make_chain "$tmp/near-match" "$domain.attacker" 40
 
 make_special_chain() {
   local output_dir="$1"
@@ -41,12 +41,12 @@ make_special_chain "$tmp/uri-comma" \
 result=$(scripts/check-cert.sh "$tmp/valid/fullchain.pem" "$domain")
 assert_eq "true" "$(json_get "$result" parseable)" "valid certificate parseability"
 assert_eq "true" "$(json_get "$result" hostname_valid)" "valid certificate hostname"
-assert_eq "false" "$(json_get "$result" renewal_required)" "four-day renewal decision"
-assert_eq "valid" "$(json_get "$result" reason)" "four-day reason"
+assert_eq "false" "$(json_get "$result" renewal_required)" "forty-day renewal decision"
+assert_eq "valid" "$(json_get "$result" reason)" "forty-day reason"
 
 result=$(scripts/check-cert.sh "$tmp/threshold/fullchain.pem" "$domain")
-assert_eq "true" "$(json_get "$result" renewal_required)" "three-day renewal decision"
-assert_eq "renewal-threshold" "$(json_get "$result" reason)" "three-day reason"
+assert_eq "true" "$(json_get "$result" renewal_required)" "ten-day renewal decision"
+assert_eq "renewal-threshold" "$(json_get "$result" reason)" "ten-day reason"
 
 result=$(scripts/check-cert.sh "$tmp/wrong/fullchain.pem" "$domain")
 assert_eq "false" "$(json_get "$result" hostname_valid)" "wrong hostname"

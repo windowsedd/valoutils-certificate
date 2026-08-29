@@ -38,7 +38,7 @@ make_chain() {
 
   mkdir -p "$output_dir"
   openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
-    -subj "/CN=ValoUtils Test CA" \
+    -subj "/O=Let's Encrypt/CN=ValoUtils Test CA" \
     -keyout "$output_dir/ca.key" \
     -out "$output_dir/ca.pem" >/dev/null 2>&1
   openssl req -newkey rsa:2048 -nodes -subj "/CN=$domain" \

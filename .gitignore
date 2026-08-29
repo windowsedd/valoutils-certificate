@@ -1,10 +1,18 @@
+# Local secrets (never commit)
+.secrets/
+
+# Private key material and PKCS#12 bundles (never commit)
 *.key
-*.pfx
 *.p12
-*.pfx.age
+*.pfx
 privkey.pem
-artifacts/
-.certbot/
-.tmp/
-cloudflare.ini
+
+# Local Certbot state
+letsencrypt/
+
+# Generated artifacts
+pfx-output/
+docs/cert-status.json
+
+# Node
 node_modules/

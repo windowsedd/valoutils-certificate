@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       force_renew:
-        description: Attempt renewal regardless of days remaining
+        description: Renew the certificate regardless of remaining validity
         required: false
         default: false
         type: boolean
@@ -41,8 +41,14 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Run local test suite
+      - name: Run test suite
         run: bash tests/run.sh
+
+      - name: Install Certbot with the Cloudflare DNS plugin
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check \
+            "certbot==5.7.0" "certbot-dns-cloudflare==5.7.0"
 
       - name: Restore published PFX
         id: pfx
@@ -62,73 +68,44 @@ jobs:
             printf 'exists=false\n' >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Inspect stored certificate
-        id: inspect
-        env:
-          FORCE_RENEW: ${{ inputs.force_renew || false }}
-          PFX_EXISTS: ${{ steps.pfx.outputs.exists }}
-        run: |
-          set -euo pipefail
-          inspection=$(scripts/check-cert.sh "docs/certificate.pem" "$DOMAIN")
-          renew=$(python -c 'import json,sys; print(str(json.loads(sys.argv[1])["renewal_required"]).lower())' "$inspection")
-          reason=$(python -c 'import json,sys; print(json.loads(sys.argv[1])["reason"])' "$inspection")
-          if [[ "$PFX_EXISTS" != "true" ]]; then
-            renew=true
-            reason=pfx-missing
-          fi
-          if [[ "$FORCE_RENEW" == "true" ]]; then
-            renew=true
-            reason=forced
-          fi
-          printf 'renew=%s\nreason=%s\n' "$renew" "$reason" >> "$GITHUB_OUTPUT"
-
-      - name: Renew with Let's Encrypt DNS-01
-        id: renew
-        if: steps.inspect.outputs.renew == 'true'
+      - name: Check and renew certificate
+        id: certificate
         continue-on-error: true
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           LETSENCRYPT_EMAIL: ${{ vars.LETSENCRYPT_EMAIL }}
         run: |
           set -euo pipefail
-          python -m pip install --disable-pip-version-check certbot==5.7.0 certbot-dns-cloudflare==5.7.0
-          mkdir -p artifacts
-          scripts/renew-cert.sh \
-            "$DOMAIN" \
-            "docs/certificate.pem" \
-            "docs/valoutils/localhost.pfx" \
-            | tee artifacts/renewal.out
+          args=()
+          if [[ "${{ inputs.force_renew }}" == "true" \
+            || "${{ steps.pfx.outputs.exists }}" != "true" ]]; then
+            args+=(--force-renew)
+          fi
+          scripts/certificate.sh "${args[@]}"
 
-      - name: Generate public status
+      - name: Publish renewed PFX
+        if: hashFiles('pfx-output/*.pfx') != ''
         run: |
           set -euo pipefail
-          if [[ "${{ steps.inspect.outputs.renew }}" == "true" ]]; then
-            if [[ "${{ steps.renew.outcome }}" == "success" ]]; then
-              renewal_iso=$(sed -n 's/^last_renewal=//p' artifacts/renewal.out | tail -n 1)
-              scripts/generate-status.sh \
-                docs/certificate.pem docs/cert-status.json "$DOMAIN" "" "$renewal_iso"
-            else
-              scripts/generate-status.sh \
-                docs/certificate.pem docs/cert-status.json "$DOMAIN" error
-            fi
-          else
-            scripts/generate-status.sh \
-              docs/certificate.pem docs/cert-status.json "$DOMAIN"
-          fi
+          mkdir -p docs/valoutils
+          cp pfx-output/*.pfx docs/valoutils/localhost.pfx
+          bash scripts/check-pfx.sh docs/valoutils/localhost.pfx "$DOMAIN"
 
-      - name: Commit public certificate status
+      - name: Commit certificate changes
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/certificate.pem docs/cert-status.json
+          git add docs/certificate.pem
           if git diff --cached --quiet; then
+            printf 'No certificate changes to commit\n'
             exit 0
           fi
-          if [[ "${{ steps.inspect.outputs.renew }}" == "true" && "${{ steps.renew.outcome }}" == "success" ]]; then
-            message="Renew $DOMAIN certificate"
+          if git cat-file -e "HEAD:docs/certificate.pem" 2>/dev/null \
+            && [[ -n "$(git show "HEAD:docs/certificate.pem")" ]]; then
+            message="Renew certificate for $DOMAIN"
           else
-            message="Update certificate status"
+            message="Issue certificate for $DOMAIN"
           fi
           git commit -m "$message"
           for attempt in 1 2 3; do
@@ -137,7 +114,7 @@ jobs:
             fi
             git pull --rebase origin "$GITHUB_REF_NAME"
           done
-          printf 'Could not push the public certificate status after three attempts\n' >&2
+          printf 'Could not push the certificate change after three attempts\n' >&2
           exit 1
 
       - name: Configure GitHub Pages
@@ -148,9 +125,11 @@ jobs:
         with:
           path: docs
 
-      - name: Report renewal failure
-        if: steps.inspect.outputs.renew == 'true' && steps.renew.outcome == 'failure'
-        run: exit 1
+      - name: Report certificate failure
+        if: steps.certificate.outcome == 'failure'
+        run: |
+          printf 'Certificate check or renewal failed; see the "Check and renew certificate" step.\n' >&2
+          exit 1
 
   deploy:
     needs: certificate

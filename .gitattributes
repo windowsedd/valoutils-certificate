@@ -1,0 +1,22 @@
+# Normalize all text files to LF so shell scripts never hit the
+# "env: 'bash\r': No such file or directory" problem on checkout.
+* text=auto
+
+*.sh text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.ini text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Certificates and keys must not be line-ending normalized.
+*.pem -text
+*.key -text
+*.pfx binary
+*.p12 binary
