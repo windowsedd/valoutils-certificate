@@ -26,6 +26,7 @@ test("workflow limits permissions and serializes certificate operations", async 
 
 test("workflow renews through certbot and fails visibly on errors", async () => {
   const yaml = await readFile(workflowUrl, "utf8");
+  assert.match(yaml, /Preflight credentials/);
   assert.match(
     yaml,
     /certbot==["']?[\d.]+["']?\s+["']?certbot-dns-cloudflare==["']?[\d.]+["']?/,

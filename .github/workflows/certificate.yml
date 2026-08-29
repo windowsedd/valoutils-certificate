@@ -31,6 +31,29 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Preflight credentials
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          LETSENCRYPT_EMAIL: ${{ vars.LETSENCRYPT_EMAIL }}
+        run: |
+          set -euo pipefail
+          failed=0
+          if [[ -z "$CF_API_TOKEN" ]]; then
+            printf 'ERROR: The CF_API_TOKEN secret is not visible to this job.\n' >&2
+            printf 'Add it as a REPOSITORY secret (not an environment secret) at:\n' >&2
+            printf '  https://github.com/%s/settings/secrets/actions\n' "$GITHUB_REPOSITORY" >&2
+            printf 'The name must be exactly: CF_API_TOKEN\n' >&2
+            failed=1
+          fi
+          if [[ -z "$LETSENCRYPT_EMAIL" ]]; then
+            printf 'ERROR: The LETSENCRYPT_EMAIL variable is not set.\n' >&2
+            printf 'Add it as a REPOSITORY VARIABLE (not a secret) at:\n' >&2
+            printf '  https://github.com/%s/settings/variables\n' "$GITHUB_REPOSITORY" >&2
+            printf 'The name must be exactly: LETSENCRYPT_EMAIL\n' >&2
+            failed=1
+          fi
+          exit "$failed"
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
