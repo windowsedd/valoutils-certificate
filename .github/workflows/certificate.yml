@@ -22,6 +22,11 @@ env:
 jobs:
   certificate:
     runs-on: ubuntu-latest
+    # Shares the github-pages environment so its secrets (CF_API_TOKEN) and
+    # variables (LETSENCRYPT_EMAIL) are visible to the issuance job; the
+    # deploy job waits for this one, so the environment is never contended.
+    environment:
+      name: github-pages
     permissions:
       contents: write
 
@@ -40,16 +45,16 @@ jobs:
           failed=0
           if [[ -z "$CF_API_TOKEN" ]]; then
             printf 'ERROR: The CF_API_TOKEN secret is not visible to this job.\n' >&2
-            printf 'Add it as a REPOSITORY secret (not an environment secret) at:\n' >&2
-            printf '  https://github.com/%s/settings/secrets/actions\n' "$GITHUB_REPOSITORY" >&2
-            printf 'The name must be exactly: CF_API_TOKEN\n' >&2
+            printf 'Add it with the exact name CF_API_TOKEN either as:\n' >&2
+            printf '  - a repository secret:      https://github.com/%s/settings/secrets/actions\n' "$GITHUB_REPOSITORY" >&2
+            printf '  - or a github-pages environment secret: https://github.com/%s/settings/environments/github-pages\n' "$GITHUB_REPOSITORY" >&2
             failed=1
           fi
           if [[ -z "$LETSENCRYPT_EMAIL" ]]; then
             printf 'ERROR: The LETSENCRYPT_EMAIL variable is not set.\n' >&2
-            printf 'Add it as a REPOSITORY VARIABLE (not a secret) at:\n' >&2
-            printf '  https://github.com/%s/settings/variables\n' "$GITHUB_REPOSITORY" >&2
-            printf 'The name must be exactly: LETSENCRYPT_EMAIL\n' >&2
+            printf 'Add it with the exact name LETSENCRYPT_EMAIL either as:\n' >&2
+            printf '  - a repository variable:    https://github.com/%s/settings/variables\n' "$GITHUB_REPOSITORY" >&2
+            printf '  - or a github-pages environment variable (as a variable, not a secret)\n' "$GITHUB_REPOSITORY" >&2
             failed=1
           fi
           exit "$failed"

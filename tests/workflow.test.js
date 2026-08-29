@@ -27,6 +27,12 @@ test("workflow limits permissions and serializes certificate operations", async 
 test("workflow renews through certbot and fails visibly on errors", async () => {
   const yaml = await readFile(workflowUrl, "utf8");
   assert.match(yaml, /Preflight credentials/);
+  // The certificate job shares the github-pages environment so the
+  // CF_API_TOKEN secret and LETSENCRYPT_EMAIL variable are visible to it.
+  assert.match(
+    yaml,
+    /certificate:\s*\n\s*runs-on:[\s\S]*?environment:\s*\n\s*name:\s*github-pages/,
+  );
   assert.match(
     yaml,
     /certbot==["']?[\d.]+["']?\s+["']?certbot-dns-cloudflare==["']?[\d.]+["']?/,
