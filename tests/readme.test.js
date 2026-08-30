@@ -5,6 +5,7 @@ import test from "node:test";
 test("README documents setup, automation, and the security boundaries", async () => {
   const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
   for (const required of [
+    "valoutils-localhost.windowsed.me",
     "valoutils-tools.windowsed.me",
     "CF_API_TOKEN",
     "LETSENCRYPT_EMAIL",
@@ -18,7 +19,7 @@ test("README documents setup, automation, and the security boundaries", async ()
     "scripts/verify.sh",
     "docs/certificate.pem",
     "docs/cert-status.json",
-    "pfx-output/valoutils-tools.windowsed.me.pfx",
+    "pfx-output/valoutils-localhost.windowsed.me.pfx",
     "https://valoutils-tools.windowsed.me/valoutils/localhost.pfx",
     "localhost.pfx",
     "letsencrypt/config",

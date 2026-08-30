@@ -1,8 +1,23 @@
 # ValoUtils Certificate
 
-Automated Let's Encrypt TLS certificate management for `valoutils-tools.windowsed.me`, with a public GitHub Pages status dashboard.
+Automated Let's Encrypt TLS certificate management for the ValoUtils app's loopback hostname `valoutils-localhost.windowsed.me`, with a public GitHub Pages status dashboard at `valoutils-tools.windowsed.me`.
 
-The hostname can resolve to `127.0.0.1` (the ValoUtils desktop app serves local TLS on it), so certificates are always issued through **Cloudflare DNS-01** — never HTTP-01. A daily GitHub Actions workflow checks the current certificate, renews it through Let's Encrypt when it enters the 30-day renewal window, generates an empty-password PFX, and publishes the public certificate and live status to GitHub Pages.
+The two hostnames have separate jobs:
+
+| Hostname | Purpose | DNS |
+| --- | --- | --- |
+| `valoutils-localhost.windowsed.me` | Certificate hostname — the app serves local TLS on it | `A` record → `127.0.0.1`, **DNS only** (grey cloud), no `AAAA` |
+| `valoutils-tools.windowsed.me` | GitHub Pages custom domain — dashboard, status JSON, PFX download | points at GitHub Pages (keep as is) |
+
+Certificates are always issued through **Cloudflare DNS-01** — never HTTP-01 — because the certificate hostname resolves to `127.0.0.1`, which no HTTP challenge server could reach. A daily GitHub Actions workflow checks the current certificate, renews it through Let's Encrypt when it enters the 30-day renewal window, generates an empty-password PFX, and publishes the public certificate and live status to GitHub Pages.
+
+## DNS setup
+
+In Cloudflare, for the `windowsed.me` zone:
+
+1. `A` record: name `valoutils-localhost`, IPv4 address `127.0.0.1`, **Proxy status: DNS only** (grey cloud).
+2. Make sure there is **no `AAAA` record** for `valoutils-localhost` — the app requires the name to resolve only to the IPv4 loopback.
+3. Leave `valoutils-tools.windowsed.me` pointing at GitHub Pages exactly as it is; DNS-01 issuance never touches it.
 
 ## How it works
 
@@ -18,7 +33,7 @@ Certificate missing / broken / expired / <= 30 days remaining?
   │         (validate chain, SAN, validity, EKU, key match before publishing)
   └── no  → keep the existing certificate
   ↓
-Generate pfx-output/valoutils-tools.windowsed.me.pfx (empty password, verified)
+Generate pfx-output/valoutils-localhost.windowsed.me.pfx (empty password, verified)
   ↓
 Update docs/certificate.pem (public chain only)
   ↓
@@ -126,17 +141,17 @@ scripts/certificate.sh --force-renew
 
 ## PFX generation
 
-`scripts/certificate.sh` always generates `pfx-output/valoutils-tools.windowsed.me.pfx` from the current certificate and private key:
+`scripts/certificate.sh` always generates `pfx-output/valoutils-localhost.windowsed.me.pfx` from the current certificate and private key:
 
 - empty password (`-passout pass:`)
 - RSA 2048 private key included
 - full Let's Encrypt chain included
-- SAN `valoutils-tools.windowsed.me`, TLS server authentication
+- SAN `valoutils-localhost.windowsed.me`, TLS server authentication
 
 The bundle is verified with `scripts/check-pfx.sh` (opens with an empty password, chain verifies, SAN matches, key matches); a PFX failure fails the whole script. To re-verify an existing PFX:
 
 ```bash
-scripts/check-pfx.sh pfx-output/valoutils-tools.windowsed.me.pfx valoutils-tools.windowsed.me
+scripts/check-pfx.sh pfx-output/valoutils-localhost.windowsed.me.pfx valoutils-localhost.windowsed.me
 ```
 
 ### PFX download
@@ -191,7 +206,7 @@ Status values: `valid` (> 30 days remaining), `renewal-soon` (inside the 30-day 
 letsencrypt/
 ├── config/
 │   ├── accounts/            Let's Encrypt account registration
-│   └── live/valoutils-tools.windowsed.me/
+│   └── live/valoutils-localhost.windowsed.me/
 │       ├── cert.pem         leaf certificate
 │       ├── chain.pem        issuer chain
 │       ├── fullchain.pem    leaf + chain (published to docs/certificate.pem)
@@ -204,7 +219,7 @@ All paths are anchored to the repository root (`BASE_DIR` from the script locati
 
 ## Troubleshooting
 
-- **Certificate not found** — No certificate exists until the first successful issuance. Run `scripts/certificate.sh` with credentials configured; check `letsencrypt/config/live/valoutils-tools.windowsed.me/`. On CI, confirm `CF_API_TOKEN` and `LETSENCRYPT_EMAIL` are configured; the failing step logs a precise reason.
+- **Certificate not found** — No certificate exists until the first successful issuance. Run `scripts/certificate.sh` with credentials configured; check `letsencrypt/config/live/valoutils-localhost.windowsed.me/`. On CI, confirm `CF_API_TOKEN` and `LETSENCRYPT_EMAIL` are configured; the failing step logs a precise reason.
 - **`env: 'bash\r': No such file or directory` / CRLF** — Line endings were converted on checkout. `.gitattributes` forces LF; re-clone, or run `git config core.autocrlf false` and `git checkout -- .` (or `dos2unix scripts/*.sh`).
 - **Cloudflare authentication failure** — Verify the token has `Zone → DNS → Edit` for the `windowsed.me` zone, that it has not expired, and that `cloudflare.ini` uses the exact key `dns_cloudflare_api_token`. Try the token against the Cloudflare API directly.
 - **DNS propagation timeouts** — Certbot waits 30 seconds for the TXT record. Cloudflare DNS is normally fast; if your zone uses unusual settings, raise `--dns-cloudflare-propagation-seconds` in `scripts/certificate.sh` and retry.

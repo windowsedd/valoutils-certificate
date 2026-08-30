@@ -41,10 +41,10 @@ test("joins SAN entries and keeps the key algorithm", () => {
   const model = statusViewModel({
     status: "valid",
     days_remaining: 89,
-    san: ["valoutils-tools.windowsed.me", "alt.windowsed.me"],
+    san: ["valoutils-localhost.windowsed.me", "alt.windowsed.me"],
     key_algorithm: "RSA 2048",
   });
-  assert.equal(model.fields.san, "valoutils-tools.windowsed.me, alt.windowsed.me");
+  assert.equal(model.fields.san, "valoutils-localhost.windowsed.me, alt.windowsed.me");
   assert.equal(model.fields.keyAlgorithm, "RSA 2048");
 });
 

@@ -5,7 +5,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_root"
 source tests/helpers.sh
 
-domain="valoutils-tools.windowsed.me"
+domain="valoutils-localhost.windowsed.me"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 

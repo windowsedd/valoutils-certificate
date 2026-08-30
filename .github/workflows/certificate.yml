@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DOMAIN: valoutils-tools.windowsed.me
+  DOMAIN: valoutils-localhost.windowsed.me
   PFX_URL: https://windowsedd.github.io/valoutils-certificate/valoutils/localhost.pfx
 
 jobs:

@@ -5,7 +5,7 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$repo_root"
 source tests/helpers.sh
 
-domain="valoutils-tools.windowsed.me"
+domain="valoutils-localhost.windowsed.me"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
@@ -35,7 +35,7 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 assert data["valid_from"].endswith("Z")
 assert data["valid_until"].endswith("Z")
 assert isinstance(data["days_remaining"], int)
-assert isinstance(data["san"], list) and data["san"] == ["valoutils-tools.windowsed.me"]
+assert isinstance(data["san"], list) and data["san"] == ["valoutils-localhost.windowsed.me"]
 assert re.fullmatch(r"([0-9A-F]{2}:){31}[0-9A-F]{2}", data["fingerprint_sha256"])
 assert data["last_renewal"] == data["valid_from"], (
     "last_renewal should fall back to the certificate notBefore date"

@@ -26,7 +26,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="${CERTIFICATE_BASE_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
-DOMAIN="valoutils-tools.windowsed.me"
+# The certificate covers the app's loopback hostname (DNS A record to
+# 127.0.0.1). The GitHub Pages dashboard lives at valoutils-tools.windowsed.me;
+# only this issuance hostname changes here.
+DOMAIN="valoutils-localhost.windowsed.me"
 RENEWAL_THRESHOLD_DAYS=30
 LE_CONFIG="$BASE_DIR/letsencrypt/config"
 LE_WORK="$BASE_DIR/letsencrypt/work"

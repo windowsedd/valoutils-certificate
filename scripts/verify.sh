@@ -10,7 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-DOMAIN="valoutils-tools.windowsed.me"
+DOMAIN="valoutils-localhost.windowsed.me"
 PUBLIC_CERT="$BASE_DIR/docs/certificate.pem"
 STATUS_JSON="$BASE_DIR/docs/cert-status.json"
 PFX_FILE="$BASE_DIR/pfx-output/$DOMAIN.pfx"
