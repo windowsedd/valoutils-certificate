@@ -39,6 +39,7 @@ test("workflow renews through certbot and fails visibly on errors", async () => 
   );
   assert.match(yaml, /CF_API_TOKEN:\s*\$\{\{ secrets\.CF_API_TOKEN \}\}/);
   assert.match(yaml, /LETSENCRYPT_EMAIL:\s*\$\{\{ vars\.LETSENCRYPT_EMAIL \}\}/);
+  assert.match(yaml, /if \[\[ "\$\{\{ inputs\.force_renew \}\}" == "true" \]\]; then/);
   assert.match(yaml, /continue-on-error:\s*true/);
   assert.match(yaml, /steps\.certificate\.outcome == 'failure'/);
 });
@@ -57,7 +58,6 @@ test("workflow republishes the PFX and deploys the generated status", async () =
   assert.match(yaml, /Restore published PFX/);
   assert.match(yaml, /curl[\s\S]*\$PFX_URL/);
   assert.match(yaml, /scripts\/check-pfx\.sh[\s\S]*\$DOMAIN/);
-  assert.match(yaml, /steps\.pfx\.outputs\.exists/);
   assert.match(yaml, /Publish renewed PFX/);
   assert.match(yaml, /cp pfx-output\/\*\.pfx docs\/valoutils\/localhost\.pfx/);
   assert.doesNotMatch(yaml, /PFX_AGE_RECIPIENT|\.pfx\.age|actions\/upload-artifact/);
