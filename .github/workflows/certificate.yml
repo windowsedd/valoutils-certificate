@@ -105,8 +105,7 @@ jobs:
         run: |
           set -euo pipefail
           args=()
-          if [[ "${{ inputs.force_renew }}" == "true" \
-            || "${{ steps.pfx.outputs.exists }}" != "true" ]]; then
+          if [[ "${{ inputs.force_renew }}" == "true" ]]; then
             args+=(--force-renew)
           fi
           scripts/certificate.sh "${args[@]}"
