@@ -105,7 +105,9 @@ jobs:
         run: |
           set -euo pipefail
           args=()
-          if [[ "${{ inputs.force_renew }}" == "true" ]]; then
+          # A fresh runner has no private key; recover a missing PFX by issuing again.
+          if [[ "${{ inputs.force_renew }}" == "true" ]] \
+            || [[ "${{ steps.pfx.outputs.exists }}" != "true" ]]; then
             args+=(--force-renew)
           fi
           scripts/certificate.sh "${args[@]}"
